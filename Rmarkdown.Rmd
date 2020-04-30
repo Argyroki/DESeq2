@@ -1,0 +1,365 @@
+---
+title: "DESeq2"
+output: html_document
+---
+
+```{r setup and packages, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(DESeq2)
+library(tidyverse)
+library(readxl)
+library(BiocManager)
+library("BiocParallel")
+library("pheatmap")
+library(dplyr)
+library(EnsDb.Hsapiens.v79)
+register(SnowParam(4))
+library(VennDiagram)
+library(gplots)
+library(RColorBrewer)
+library("ggplot2")
+
+
+
+```
+ Import data
+
+```{r import_data}
+matrix <- read.table("../Desktop/genes.tvs/genes.tsv", header=1, check.names = FALSE)
+rownames(matrix) <- matrix$id
+matrix$id <- NULL
+
+
+metadata <- read_excel("C:/Users/argyr/Desktop/metadata.xlsx")
+metadata$timepoint<-as.factor(metadata$timepoint)
+
+
+dds<-DESeqDataSetFromMatrix(countData = matrix , colData = metadata, design = ~timepoint+donor)
+dds
+
+```
+gene names
+
+```{r names}
+#   BiocManager::install("EnsDb.Hsapiens.v79")
+
+ensembl.genes <- rownames(res)
+geneIDs1 <- ensembldb::select(EnsDb.Hsapiens.v79, keys= ensembl.genes, keytype = "GENEID", columns = c("SYMBOL","GENEID"))
+
+
+counts <- as.data.frame(counts(dds, normalized=T))
+counts$GENEID <- rownames(counts)
+combine_counts <- dplyr::inner_join(counts, geneIDs1, by="GENEID")
+rownames(combine_counts) <- make.unique(combine_counts$SYMBOL)
+combine_counts$GENEID <- NULL
+combine_counts$SYMBOL <- NULL
+```
+
+Dataset with gene names
+```{r dataset with names}
+count$id <- rownames(count) 
+count$id <- NULL
+
+dds1<-DESeqDataSetFromMatrix(countData = combine_counts , colData = metadata, design = ~timepoint) 
+dds1
+```
+
+LRT significant - gene names
+``` {r }
+
+ddsLRT <- DESeq(dds, test="LRT",reduced= ~ timepoint)
+ddsLRT
+DEresLRT <- results(ddsLRT)
+DEresLRT
+summary(DEresLRT, alpha=0.05)
+resLRT <- as.data.frame(DEresLRT) + dplyr::filter(padj < 0.05)
+resLRT
+
+# or
+
+ddsLRT <- DESeq(dds1, test="LRT",reduced= ~ 1)
+ddsLRT
+DEresLRT <- results(ddsLRT)
+DEresLRT
+summary(DEresLRT, alpha=0.05)
+resLRT <- as.data.frame(DEresLRT)   %>% rownames_to_column('id')  %>%   dplyr::filter(padj > 0.05)
+view(resLRT)
+```
+ Differential expression analysis
+```{r Differential expression analysis}
+dds <- DESeq(dds)
+dds1 <- DESeq(dds1)
+results(dds)
+
+res02<- as.data.frame(results(dds1, contrast = c("timepoint", "2", "0"))) %>% rownames_to_column('id')  %>% dplyr::filter(padj < 0.05) 
+view(res02) # +1 TMEM189-UBE2V1 ENSG00000124208
+
+res04<- as.data.frame(results(dds1, contrast = c("timepoint", "4", "0"))) %>% rownames_to_column('id')  %>% dplyr::filter(padj < 0.05) 
+view(res04)
+
+res06 <- as.data.frame(results(dds1, contrast = c("timepoint", "6", "0"))) %>% rownames_to_column('id')  %>% dplyr::filter(padj < 0.05) 
+view(res06)
+
+res08 <- as.data.frame(results(dds1, contrast = c("timepoint", "8", "0"))) %>% rownames_to_column('id')  %>% dplyr::filter(padj < 0.05) 
+view(res08)
+
+res24<- as.data.frame(results(dds1, contrast = c("timepoint", "2", "4"))) %>% rownames_to_column('id')  %>% dplyr::filter(padj < 0.05)
+view(res24)
+
+res48<- as.data.frame(results(dds1, contrast = c("timepoint", "4", "8"))) %>% rownames_to_column('id')  %>% dplyr::filter(padj < 0.05)
+view(res48)
+
+res46<- as.data.frame(results(dds1, contrast = c("timepoint", "4", "6"))) %>% rownames_to_column('id')  %>% dplyr::filter(padj < 0.05) 
+view(res46)
+
+res68<- as.data.frame(results(dds1, contrast = c("timepoint", "6", "8"))) %>% rownames_to_column('id')  %>% dplyr::filter(padj < 0.05) 
+view(res68)
+
+res46<- as.data.frame(results(dds1, contrast = c("timepoint", "4", "6"))) %>% rownames_to_column('id')  %>% dplyr::filter(padj < 0.05) 
+view(res46)
+
+res48<- as.data.frame(results(dds1, contrast = c("timepoint", "4", "8"))) %>% rownames_to_column('id')  %>% dplyr::filter(padj < 0.05) 
+view(res48)
+
+
+res26<- as.data.frame(results(dds1, contrast = c("timepoint", "2", "6"))) %>% rownames_to_column('id')  %>% dplyr::filter(padj < 0.05) 
+view(res26)
+
+res28<- as.data.frame(results(dds1, contrast = c("timepoint", "2", "8"))) %>% rownames_to_column('id')  %>% dplyr::filter(padj < 0.05) 
+view(res28)
+```
+
+LRT significant - gene names
+``` {r }
+ddsLRT <- DESeq(dds1, test="LRT",reduced= ~ 1)
+ddsLRT
+DEresLRT <- results(ddsLRT)
+DEresLRT
+summary(DEresLRT, alpha=0.05)
+resLRT <- as.data.frame(DEresLRT)   %>% rownames_to_column('id')  %>%   dplyr::filter(padj > 0.05)
+view(resLRT)
+```
+Differential expression analysis
+```{r Differential expression analysis}
+
+counts <- as.data.frame(counts(dds, normalized=TRUE))
+counts$GENEID <- rownames(counts)
+combine_counts <- dplyr::inner_join(counts, geneIDs1, by="GENEID")
+rownames(combine_counts) <- make.unique(combine_counts$SYMBOL)
+combine_counts$GENEID <- NULL
+combine_counts$SYMBOL <- NULL
+
+dds <- DESeq(dds)
+res <- results(dds, contrast = c("timepoint", "2", "0"))
+resultsNames(dds)
+res
+```
+
+tfs
+```{r tfs}
+tf<- read.table("../Desktop/export.txt", sep="\t" , header=1, check.names = FALSE)
+tf$Human_entrez <- NULL
+tf$Rat_entrez <- NULL
+tf$Mouse_entrez<- NULL
+tf$Gene_Name <- NULL
+tf$Synonym <- NULL
+tf$DbTF <- NULL
+tf$PMID <- NULL
+tf$Uniprot_Rat <- NULL
+tf$Uniprot_mouse <- NULL
+tf$Uniprot_Human <- NULL
+tf
+
+#Dataset 0-8 significant
+
+null8 <- read_excel("C:/Users/argyr/Desktop/08_sig.xlsx")
+null8
+
+
+common <- intersect(null8$Genes, tf$Gene_symbol)
+common
+
+tf08<-  c("NR1H3"  , "ARNTL2"  ,"PRDM1" ,  "YBX3" ,   "RARB"    ,"TCF7"  ,  "TBX15"  , "RELB" ,  
+  "HLF"    , "BCL6"  ,  "NFE2L2",  "BHLHE41" ,"HIF3A" ,  "NR1D1" ,  "RNF112"  ,"HMGA1"  ,
+ "LEF1"   , "OSR1" ,   "THRB" ,   "ZNF281" , "ZNF219" , "E2F7" ,   "MN1"  ,   "SP7" ,   
+ "STAT2" ,  "STAT5B" , "FOSL1" ,  "MYBL1" ,  "LITAF"   )
+tf08
+
+
+```
+##expression in time/up down regulation
+``` {r whatever}
+results(dds1)
+reg<- as.data.frame(results(dds1)) %>% rownames_to_column('id') 
+reg 
+upreg<-   arrange(reg, desc(log2FoldChange)) %>%
+ dplyr::filter( padj < 0.05) %>% dplyr::filter(log2FoldChange > 0)
+upreg
+downreg<-arrange(reg, log2FoldChange) %>%
+ dplyr::filter( padj < 0.05) %>% dplyr::filter(log2FoldChange < 0)
+downreg
+
+
+common1 <- intersect(upreg$id, downreg$id)  
+common1 
+```
+
+Heatmap with all donors, all timepoints.
+Genes that significantly change from 0 to 8.
+
+```{r heatmap}
+
+select<- order(rowMeans(combine_counts), decreasing = TRUE)
+df<-as.data.frame(colData(dds1)[,c("donor","timepoint")])
+ntd <- normTransform(dds1)
+
+mat <- assay(ntd) %>% as.data.frame() %>% 
+  tibble::rownames_to_column("GENES") %>% 
+  dplyr::filter(GENES %in% null8$Genes) %>% 
+  tibble::column_to_rownames("GENES")
+mat <- as.matrix(mat)
+mat <- mat - rowMeans(mat)
+
+pheatmap(assay(ntd)[select,], cluster_rows=FALSE, show_rownames=FALSE, cluster_cols=FALSE, annotation_col=df)
+```
+
+
+Heatmap that includes the genes that change significantly from 0 to 8.
+Heatmap includes all donors, only timepoints 0 and 8.
+
+
+```{r}
+
+timepoint08order<- subset(combine_counts, select=c(5, 11, 1, 17 , 10, 15 , 16, 2)) 
+
+metadata <- read_excel("C:/Users/argyr/Desktop/metadata1.xlsx")
+metadata$timepoint<-as.factor(metadata$timepoint)
+dds2<-DESeqDataSetFromMatrix(countData = timepoint08order , colData = metadata, design = ~timepoint) 
+dds2
+dds2<-DESeq(dds2)
+
+select<- order(rowMeans(timepoint08order), decreasing = TRUE)
+df<-as.data.frame(colData(dds2)[,c("donor","timepoint")])
+ntd <- normTransform(dds2)
+
+mat <- assay(ntd) %>% as.data.frame() %>% 
+  tibble::rownames_to_column("GENES") %>% 
+  dplyr::filter(GENES %in% null8$Genes) %>% 
+  tibble::column_to_rownames("GENES")
+mat <- as.matrix(mat)
+mat <- mat - rowMeans(mat)
+
+mat_colors <- list(group = brewer.pal(3, "Set1"))
+pheatmap(mat, cluster_rows=TRUE,color = colorRampPalette(rev(brewer.pal(n = 7, name =
+  "RdBu")))(20), show_rownames=FALSE, cluster_cols=FALSE, annotation_col=df)
+
+```
+Heatmap with all donors, all timepoints.
+Genes are the TFs
+
+```{r}
+
+
+select<- order(rowMeans(combine_counts), decreasing = TRUE)
+df<-as.data.frame(colData(dds1)[,c("donor","timepoint")])
+ntd <- normTransform(dds1)
+
+
+
+mat <- assay(ntd) %>% as.data.frame() %>% 
+  tibble::rownames_to_column("GENES") %>% 
+  dplyr::filter(GENES %in% tf08) %>% 
+  tibble::column_to_rownames("GENES")
+mat <- as.matrix(mat)
+mat <- mat - rowMeans(mat)
+
+mat_colors <- list(group = brewer.pal(3, "Set1"))
+pheatmap(mat, cluster_rows=TRUE,color = colorRampPalette(rev(brewer.pal(n = 7, name =
+  "RdBu")))(20), show_rownames=TRUE, cluster_cols=TRUE, annotation_col=df)
+```
+Heatmap with all donors, timepoints 0 to 8.
+Genes are the TFs
+
+```{r}
+
+
+select<- order(rowMeans(timepoint08order), decreasing = TRUE)
+df<-as.data.frame(colData(dds2)[,c("donor","timepoint")])
+ntd <- normTransform(dds2)
+
+
+
+mat <- assay(ntd) %>% as.data.frame() %>% 
+  tibble::rownames_to_column("GENES") %>% 
+  dplyr::filter(GENES %in% tf08) %>% 
+  tibble::column_to_rownames("GENES")
+mat <- as.matrix(mat)
+mat <- mat - rowMeans(mat)
+
+mat_colors <- list(group = brewer.pal(3, "Set1"))
+pheatmap(mat, cluster_rows=TRUE,color = colorRampPalette(rev(brewer.pal(n = 7, name =
+  "RdBu")))(20), show_rownames=TRUE, cluster_cols=FALSE, annotation_col=df)
+```
+
+
+Plots for the expression of the TFs
+```{r}
+
+for(gene in tf08){
+  f<-plotCounts(dds1, gene, intgroup="timepoint", returnData = TRUE)
+  print(ggplot(f, aes( x=timepoint, y=count)) + geom_boxplot() + geom_text(aes(label = row.names(f)))+   ggtitle(gene)+ geom_point(position=position_jitter(w=0.1,h=0)) + scale_y_log10(breaks=waiver()))
+}
+
+
+
+```
+Plots for the expression of the genes that we picked based on literature (Tas' plots)
+```{r}
+
+impgenes <-c("DMP1", "SOST", "PHEX", "MEPE", "RUNX2", "OMD", "ALPL", "BGLAP", "GDF5", "GJA1", "PDPN", "FGF23", "PTH1R", "TNFRSF11B","TNFSF11")
+
+for(gene in impgenes){
+  f<-plotCounts(dds1, gene, intgroup="timepoint", returnData = TRUE)
+  print(ggplot(f, aes( x=timepoint, y=count)) + geom_boxplot() + geom_text(aes(label = row.names(f)))+   ggtitle(gene)+ geom_point(position=position_jitter(w=0.1,h=0)) + scale_y_log10(breaks=waiver()))
+}
+
+
+
+```
+
+Venn diagram
+```{r}
+
+tf <- tf08
+up <- upreg$id
+down <- downreg$id
+sigall <- null8$Genes
+
+
+myCol <- brewer.pal(3, "Pastel2")
+
+venn <- venn.diagram(
+  x = list(tf, up, down),
+  category.names = c("TFs" , "Up-regulated", "Down regulated") ,
+  filename = 'venn.png' ,
+
+  output = TRUE , 
+  imagetype = "png",
+          col=c("#440154ff", '#21908dff', '#fde725ff'),
+          fill = myCol,
+          cat.col = c("#440154ff", '#21908dff', '#fde725ff'),
+  
+                  # Numbers
+        cex = 1,
+        fontface = "bold",
+        fontfamily = "sans",
+        
+        # Set names
+        cat.cex = 1,
+        cat.fontface = "bold",
+        cat.default.pos = "outer",
+        cat.fontfamily = "sans"
+)
+
+
+```
